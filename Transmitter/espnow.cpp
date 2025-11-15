@@ -1,0 +1,29 @@
+#include "espnow.h"
+
+uint8_t broadcastAddress[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+
+void espnow_init() {
+  WiFi.mode(WIFI_STA);
+  Serial.println("ESP_NOW Transmitter");
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP_NOW init Failed");
+    return;
+  }
+
+  esp_now_register_send_cb(onDataSent);
+
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  if (!esp_now_add_peer(&peerInfo)) {
+    Serial.println("Broadcast peer added");
+  }
+}
+
+void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.printf("Send Status: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+}
