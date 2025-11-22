@@ -6,6 +6,7 @@ void espnow_init() {
   WiFi.mode(WIFI_STA);
   Serial.println("ESP_NOW Transmitter");
 
+  // Initialize ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("ESP_NOW init Failed");
     return;
@@ -13,13 +14,17 @@ void espnow_init() {
 
   esp_now_register_send_cb(onDataSent);
 
+  // Add broadcast peer
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
 
-  if (!esp_now_add_peer(&peerInfo)) {
+  esp_err_t status = esp_now_add_peer(&peerInfo);
+  if (status == ESP_OK) {
     Serial.println("Broadcast peer added");
+  } else {
+    Serial.printf("Failed to add peer. Error: %d\n", status);
   }
 }
 

@@ -61,7 +61,7 @@ void loop() {
 
   OLED_display_show();
 
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Control, sizeof(Control));
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Control, sizeof(Control));
   if (result == ESP_OK) {
     Serial.println("Broadcast sent");
   } else {
