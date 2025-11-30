@@ -1,22 +1,42 @@
 #include <Arduino.h>
+#include <Wire.h>
+#include <PCF8574.h>
 #include "espnow.h"
 #include "Joystick.h"
 #include "OLED.h"
 #include "Transmitter.h"
 
+PCF8574 pcf(0x20);
+
 void setup() {
   Serial.begin(115200);
   OLED_Display_init();
+    // Button
+  pcf.begin();  // default sets all pins HIGH (input mode)
+
   printOLED("OLED", "Initializing...");
   // Serial.println("\n--- ESP32 Dual Joystick Reader + OLED Display ---");
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
   Dynamic_calibration();
   espnow_init();
+
   delay(2000);
 }
 
 void loop() {
+  for (int i = 0; i < 8; i++) {
+    // For buttons → use readButton (it handles inverted logic)
+    int val = pcf.readButton(i);
+    if (val == 0) {
+      Serial.print("P");
+      Serial.print(i);
+      Serial.print(": ");
+      Serial.print(val);
+      Serial.print(" : Button is Pressed  ");
+      Serial.println();
+    }
+  }
   // --- 1. Read Raw Values ---
   xAxis1Raw = readJoystickAxis(JOYSTICK1_X_PIN);
   yAxis1TrueRaw = readJoystickAxis(JOYSTICK1_Y_PIN);
