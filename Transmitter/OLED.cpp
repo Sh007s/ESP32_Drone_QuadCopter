@@ -83,3 +83,15 @@ int calibrateCenter(int pin, const char* label) {
   return centerValue;
 }
 
+void OLED_Clear() {
+  display.clearDisplay();
+}
+
+void OLED_PrintLine(int row, const char* text) {
+  display.setCursor(0, row * 12);  // 12px per line
+  display.println(text);
+}
+
+void OLED_Update() {
+  display.display();
+}

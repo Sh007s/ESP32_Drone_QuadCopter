@@ -21,5 +21,9 @@ void OLED_Display_init();
 void Dynamic_calibration();
 void printOLED(const char* line1, const char* line2, int value = -1);
 int calibrateCenter(int pin, const char* label);
+void OLED_Update();
+void OLED_PrintLine(int row, const char* text);
+void OLED_Clear() ;
+
 
 #endif  // OLED_H
