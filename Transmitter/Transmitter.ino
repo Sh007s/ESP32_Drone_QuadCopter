@@ -7,6 +7,10 @@
 #include "Transmitter.h"
 
 #define LONG_PRESS_TIME 600  // ms
+#define Toggle_Switch0 0
+#define Toggle_Switch1 1
+#define Tactile_Button1 2
+#define Tactile_Button2 3
 
 PCF8574 pcf(0x20);
 
@@ -27,9 +31,43 @@ unsigned long pressStartB4 = 0;
 bool B3_wasPressed = false;
 bool B4_wasPressed = false;
 
-Telemetry_t Telemetry;
+TelemetryPacket telemetry;
+
+uint8_t receiverMAC[6];
+bool receiverFound = false;
+bool macStored = false;
+// FAILSAFE
+bool failsafe = true;
+bool armed = false;
+unsigned long lastPacketTime = 0;
+const unsigned long FAILSAFE_TIMEOUT = 300;
+
 PID_t PID = { 1.5, 0.3, 0.05 };  // default values
 
+
+// == == == == == == == == == == = ESP - NOW CALLBACK == == == == == == == == == == =
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
+
+  if (!receiverFound && len == 6) {
+    memcpy(receiverMAC, incomingData, 6);
+    receiverFound = true;
+
+    esp_now_peer_info_t peerInfo = {};
+    memcpy(peerInfo.peer_addr, receiverMAC, 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+    esp_now_add_peer(&peerInfo);
+    Serial.println("Receiver MAC stored:");
+    for (int i = 0; i < 6; i++) { Serial.printf("%02X:", receiverMAC[i]); }
+    return;
+  }
+  // If length matches telemetry struct → store telemetry
+  if (len == sizeof(telemetry)) {
+    memcpy(&telemetry, incomingData, sizeof(telemetry));
+    Serial.println("Telemetry Received!");
+  }
+}
+/*
 // Read all PCF8574 buttons at once (0 = pressed)
 uint8_t readButtonPattern() {
   uint8_t pattern = 0;
@@ -39,11 +77,11 @@ uint8_t readButtonPattern() {
   }
   return pattern;
 }
-
+*/
 void handleMenuButtons() {
 
-  bool UP = (pcf.readButton(2) == 0);    // pin 2
-  bool DOWN = (pcf.readButton(3) == 0);  // pin 3
+  bool UP = (pcf.readButton(Tactile_Button1) == 0);    // pin 2
+  bool DOWN = (pcf.readButton(Tactile_Button2) == 0);  // pin 3
 
   static bool upPressed = false;
   static bool downPressed = false;
@@ -95,7 +133,6 @@ void handleMenuButtons() {
   }
 }
 
-
 // ---------------- MENU ACTIONS ----------------
 void performUp() {
   cursorIndex--;
@@ -128,7 +165,6 @@ void drawMainMenu() {
   OLED_Update();
 }
 
-
 void drawTXData() {
   OLED_Clear();
   OLED_PrintLine(0, "TX DATA");
@@ -147,9 +183,9 @@ void drawRXData() {
   OLED_PrintLine(0, "RX DATA");
 
   char line1[32], line2[32], line3[32];
-  sprintf(line1, "M1:%d M2:%d", Telemetry.M1, Telemetry.M2);
-  sprintf(line2, "M3:%d M4:%d", Telemetry.M3, Telemetry.M4);
-  sprintf(line3, "Y:%d P:%d R:%d", Telemetry.Yaw, Telemetry.Pitch, Telemetry.Roll);
+  sprintf(line1, "m1:%d m2:%d", telemetry.m1, telemetry.m2);
+  sprintf(line2, "m3:%d m4:%d", telemetry.m3, telemetry.m4);
+  sprintf(line3, "Y:%d P:%d R:%d", telemetry.yaw, telemetry.pitch, telemetry.roll);
 
   OLED_PrintLine(1, line1);
   OLED_PrintLine(2, line2);
@@ -193,7 +229,6 @@ void setup() {
   analogSetAttenuation(ADC_11db);
   Dynamic_calibration();
   espnow_init();
-
   delay(2000);
 }
 
@@ -236,14 +271,13 @@ void loop() {
                 Control.Throttle, Control.Pitch,
                 Control.Yaw, Control.Roll);
 
-
   // --- Serial Output (Control values are 0-255) ---
   Serial.printf("J1X:%3d J1Y:%3d | J2X:%3d J2Y:%3d\n",
                 xAxis1Control, yAxis1Control,
                 xAxis2Control, yAxis2Control);
   Serial.printf("DEBUG: J1Y Corr: %4d | True Raw: %4d\n", yAxis1Raw, yAxis1TrueRaw);
 
-  //  // OLED_display_show();
+  // OLED_display_show();
 
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Control, sizeof(Control));
   if (result == ESP_OK) {

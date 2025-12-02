@@ -11,11 +11,11 @@ struct ControlData {
 };
 
 typedef struct {
-  int M1, M2, M3, M4;
-  int Pitch, Roll, Yaw;
-} Telemetry_t;
+  int m1, m2, m3, m4;
+  float pitch, roll, yaw;
+} TelemetryPacket;
 
-extern Telemetry_t Telemetry;
+extern TelemetryPacket telemetry;
 
 typedef struct {
   float P;

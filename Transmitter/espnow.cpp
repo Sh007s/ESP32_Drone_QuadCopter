@@ -1,6 +1,7 @@
 #include "espnow.h"
 
 uint8_t broadcastAddress[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+//unit8_t myMac[6];
 
 void espnow_init() {
   WiFi.mode(WIFI_STA);
@@ -26,6 +27,8 @@ void espnow_init() {
   } else {
     Serial.printf("Failed to add peer. Error: %d\n", status);
   }
+
+  esp_now_register_recv_cb(OnDataRecv);
 }
 
 void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
