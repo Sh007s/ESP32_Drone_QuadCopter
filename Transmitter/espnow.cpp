@@ -32,6 +32,6 @@ void espnow_init() {
 }
 
 void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  Serial.printf("Send Status: ");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+ // Serial.printf("Send Status: ");
+ // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
 }

@@ -11,8 +11,9 @@
 #define Toggle_Switch1 1
 #define Tactile_Button1 2
 #define Tactile_Button2 3
+#define PCF_ADDR 0x20
 
-PCF8574 pcf(0x20);
+PCF8574 pcf(PCF_ADDR);
 
 enum MenuState {
   MENU_MAIN,
@@ -21,29 +22,27 @@ enum MenuState {
   MENU_PID
 };
 
-MenuState currentMenu = MENU_MAIN;
-int cursorIndex = 0;
-
-// Button press tracking
-unsigned long pressStartB3 = 0;
-unsigned long pressStartB4 = 0;
-
-bool B3_wasPressed = false;
-bool B4_wasPressed = false;
-
 TelemetryPacket telemetry;
 
 uint8_t receiverMAC[6];
 bool receiverFound = false;
 bool macStored = false;
-// FAILSAFE
-bool failsafe = true;
-bool armed = false;
-unsigned long lastPacketTime = 0;
-const unsigned long FAILSAFE_TIMEOUT = 300;
 
 PID_t PID = { 1.5, 0.3, 0.05 };  // default values
 
+MenuState currentMenu = MENU_MAIN;
+int cursorIndex = 0;
+
+const bool BUTTONS_ACTIVE_LOW = true;  // true if button pulls pin LOW when pressed
+const uint8_t BUTTON_COUNT = 4;        // number of buttons used (<=8)
+// Debounce
+const unsigned long DEBOUNCE_MS = 30;
+
+// Map your buttons to PCF8574 pins (P0..P7).
+const uint8_t BUTTON_PINS[BUTTON_COUNT] = { 0, 1, 2, 3 };
+
+uint8_t readPCF8574Buttons();
+uint8_t buttons = 0;
 
 // == == == == == == == == == == = ESP - NOW CALLBACK == == == == == == == == == == =
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
@@ -67,21 +66,39 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
     Serial.println("Telemetry Received!");
   }
 }
-/*
-// Read all PCF8574 buttons at once (0 = pressed)
-uint8_t readButtonPattern() {
-  uint8_t pattern = 0;
-  for (int i = 0; i < 8; i++) {
-    int val = pcf.readButton(i);
-    if (val == 0) pattern |= (1 << i);
+
+uint8_t readPCF8574Buttons() {
+  // uint8_t raw = pcf.read();  // read 8 bits from PCF8574
+  uint8_t packed = 0;
+
+  for (uint8_t i = 0; i < BUTTON_COUNT; i++) {
+    int val = pcf.readButton(BUTTON_PINS[i]);
+    bool pressed = (val == 0);
+    if (pressed) packed |= (1 << i);
   }
-  return pattern;
+  return packed;
 }
-*/
+
+// ------------------------------------------------------------------
+bool validatePins() {
+  for (uint8_t i = 0; i < BUTTON_COUNT; i++) {
+    if (BUTTON_PINS[i] > 7) return false;
+    for (uint8_t j = i + 1; j < BUTTON_COUNT; j++) {
+      if (BUTTON_PINS[i] == BUTTON_PINS[j]) return false;
+    }
+  }
+  return true;
+}
+
 void handleMenuButtons() {
 
-  bool UP = (pcf.readButton(Tactile_Button1) == 0);    // pin 2
-  bool DOWN = (pcf.readButton(Tactile_Button2) == 0);  // pin 3
+  // bool UP = (pcf.readButton(Tactile_Button1) == 0);    // pin 2
+  // bool DOWN = (pcf.readButton(Tactile_Button2) == 0);  // pin 3
+
+  buttons = readPCF8574Buttons();  // <-- single variable
+
+  bool UP = buttons & (1 << Tactile_Button1);
+  bool DOWN = buttons & (1 << Tactile_Button2);
 
   static bool upPressed = false;
   static bool downPressed = false;
@@ -111,6 +128,7 @@ void handleMenuButtons() {
       performUp();
     }
     upPressed = false;
+    upLongDone = false;  // Reset
   }
 
   // ---------------- DOWN BUTTON (Short = DOWN, Long = BACK)
@@ -130,18 +148,25 @@ void handleMenuButtons() {
       performDown();
     }
     downPressed = false;
+    downLongDone = false;  // reset
   }
 }
 
 // ---------------- MENU ACTIONS ----------------
 void performUp() {
   cursorIndex--;
+  Serial.print("Buttons: ");
+  Serial.println(buttons, BIN);
   if (cursorIndex < 0) cursorIndex = 2;
+  Serial.println("ACTION: performUp()");
 }
 
 void performDown() {
   cursorIndex++;
+  Serial.print("Buttons: ");
+  Serial.println(buttons, BIN);
   if (cursorIndex > 2) cursorIndex = 0;
+  Serial.println("ACTION: performDown()");
 }
 
 void performSelect() {
@@ -150,9 +175,15 @@ void performSelect() {
     if (cursorIndex == 1) currentMenu = MENU_RX_DATA;
     if (cursorIndex == 2) currentMenu = MENU_PID;
   }
+  Serial.print("Buttons: ");
+  Serial.println(buttons, BIN);
+  Serial.println("ACTION: performSelect()");
 }
 void performBack() {
   currentMenu = MENU_MAIN;
+  Serial.print("Buttons: ");
+  Serial.println(buttons, BIN);
+  Serial.println("ACTION: performBack()");
 }
 
 // ------------------ DRAWING MENUS --------------------
@@ -222,7 +253,6 @@ void setup() {
   OLED_Display_init();
   // Button
   pcf.begin();  // default sets all pins HIGH (input mode)
-
   printOLED("OLED", "Initializing...");
   // Serial.println("\n--- ESP32 Dual Joystick Reader + OLED Display ---");
   analogReadResolution(12);
@@ -266,25 +296,23 @@ void loop() {
   Control.Pitch = yAxis2Control;
   Control.Roll = xAxis2Control;
 
-  // --- Serial Output (using the new struct) ---
-  Serial.printf("T:%3d P:%3d Y:%3d R:%3d\n",
-                Control.Throttle, Control.Pitch,
-                Control.Yaw, Control.Roll);
+  // // --- Serial Output (using the new struct) ---
+  // Serial.printf("T:%3d P:%3d Y:%3d R:%3d\n",
+  //               Control.Throttle, Control.Pitch,
+  //               Control.Yaw, Control.Roll);
 
-  // --- Serial Output (Control values are 0-255) ---
-  Serial.printf("J1X:%3d J1Y:%3d | J2X:%3d J2Y:%3d\n",
-                xAxis1Control, yAxis1Control,
-                xAxis2Control, yAxis2Control);
-  Serial.printf("DEBUG: J1Y Corr: %4d | True Raw: %4d\n", yAxis1Raw, yAxis1TrueRaw);
-
-  // OLED_display_show();
+  // // --- Serial Output (Control values are 0-255) ---
+  // Serial.printf("J1X:%3d J1Y:%3d | J2X:%3d J2Y:%3d\n",
+  //               xAxis1Control, yAxis1Control,
+  //               xAxis2Control, yAxis2Control);
+  // Serial.printf("DEBUG: J1Y Corr: %4d | True Raw: %4d\n", yAxis1Raw, yAxis1TrueRaw);
 
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Control, sizeof(Control));
   if (result == ESP_OK) {
-    Serial.println("Broadcast sent");
+    //  Serial.println("Broadcast sent");
   } else {
-    Serial.print("Send error: ");
-    Serial.println(result);
+    // Serial.print("Send error: ");
+    // Serial.println(result);
   }
 
   // -------- OLED MENU DRAW ----------
