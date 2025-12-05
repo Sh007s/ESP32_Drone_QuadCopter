@@ -8,6 +8,7 @@ struct ControlData {
     uint8_t Yaw;      // Rotation around the Z-axis (0=Left, 127=Center, 255=Right)
     uint8_t Pitch;    // Forward/Backward movement (0=Forward/Backward, 127=Center)
     uint8_t Roll;     // Left/Right movement (0=Left, 127=Center, 255=Right)
+    uint8_t Mode;      // Mode for Drone
 };
 
 typedef struct {

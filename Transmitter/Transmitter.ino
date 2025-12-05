@@ -7,8 +7,8 @@
 #include "Transmitter.h"
 
 #define LONG_PRESS_TIME 600  // ms
-#define Toggle_Switch0 0
-#define Toggle_Switch1 1
+#define Toggle_Switch1 0
+#define Toggle_Switch2 1
 #define Tactile_Button1 2
 #define Tactile_Button2 3
 #define PCF_ADDR 0x20
@@ -68,7 +68,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
 }
 
 uint8_t readPCF8574Buttons() {
-  // uint8_t raw = pcf.read();  // read 8 bits from PCF8574
+
   uint8_t packed = 0;
 
   for (uint8_t i = 0; i < BUTTON_COUNT; i++) {
@@ -79,21 +79,7 @@ uint8_t readPCF8574Buttons() {
   return packed;
 }
 
-// ------------------------------------------------------------------
-bool validatePins() {
-  for (uint8_t i = 0; i < BUTTON_COUNT; i++) {
-    if (BUTTON_PINS[i] > 7) return false;
-    for (uint8_t j = i + 1; j < BUTTON_COUNT; j++) {
-      if (BUTTON_PINS[i] == BUTTON_PINS[j]) return false;
-    }
-  }
-  return true;
-}
-
 void handleMenuButtons() {
-
-  // bool UP = (pcf.readButton(Tactile_Button1) == 0);    // pin 2
-  // bool DOWN = (pcf.readButton(Tactile_Button2) == 0);  // pin 3
 
   buttons = readPCF8574Buttons();  // <-- single variable
 
@@ -200,12 +186,14 @@ void drawTXData() {
   OLED_Clear();
   OLED_PrintLine(0, "TX DATA");
 
-  char line1[32], line2[32];
+  char line1[32], line2[32], line3[16];
   sprintf(line1, "T:%3d  P:%3d", Control.Throttle, Control.Pitch);
   sprintf(line2, "Y:%3d  R:%3d", Control.Yaw, Control.Roll);
+  sprintf(line3, "Mode :%3d", Control.Mode);
 
   OLED_PrintLine(1, line1);
   OLED_PrintLine(2, line2);
+  OLED_PrintLine(3, line3);
   OLED_Update();
 }
 
@@ -253,6 +241,7 @@ void setup() {
   OLED_Display_init();
   // Button
   pcf.begin();  // default sets all pins HIGH (input mode)
+
   printOLED("OLED", "Initializing...");
   // Serial.println("\n--- ESP32 Dual Joystick Reader + OLED Display ---");
   analogReadResolution(12);
@@ -295,6 +284,7 @@ void loop() {
   Control.Yaw = xAxis1Control;
   Control.Pitch = yAxis2Control;
   Control.Roll = xAxis2Control;
+  Control.Mode = buttons;
 
   // // --- Serial Output (using the new struct) ---
   // Serial.printf("T:%3d P:%3d Y:%3d R:%3d\n",
@@ -317,6 +307,6 @@ void loop() {
 
   // -------- OLED MENU DRAW ----------
   drawMenu();
-
+ 
   delay(100);
 }
