@@ -196,21 +196,23 @@ void drawTXData() {
   OLED_PrintLine(3, line3);
   OLED_Update();
 }
-
 void drawRXData() {
   OLED_Clear();
   OLED_PrintLine(0, "RX DATA");
 
   char line1[32], line2[32], line3[32];
-  sprintf(line1, "m1:%d m2:%d", telemetry.m1, telemetry.m2);
-  sprintf(line2, "m3:%d m4:%d", telemetry.m3, telemetry.m4);
-  sprintf(line3, "Y:%d P:%d R:%d", telemetry.yaw, telemetry.pitch, telemetry.roll);
+
+  snprintf(line1, sizeof(line1), "m1:%d m2:%d", telemetry.m1, telemetry.m2);
+  snprintf(line2, sizeof(line2), "m3:%d m4:%d", telemetry.m3, telemetry.m4);
+  snprintf(line3, sizeof(line3), "Y:%d P:%d R:%d", telemetry.yaw, telemetry.pitch, telemetry.roll);
+
 
   OLED_PrintLine(1, line1);
   OLED_PrintLine(2, line2);
   OLED_PrintLine(3, line3);
   OLED_Update();
 }
+
 
 void drawPID() {
   OLED_Clear();
@@ -307,6 +309,6 @@ void loop() {
 
   // -------- OLED MENU DRAW ----------
   drawMenu();
- 
+
   delay(100);
 }
