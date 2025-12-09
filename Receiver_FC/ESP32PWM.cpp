@@ -162,7 +162,7 @@ void ESP32PWM::writeScaled(double duty) {
 }
 void ESP32PWM::write(uint32_t duty) {
 	myDuty = duty;
-  Serial.println("DUTY in PWM.cpp is " + String(duty));
+ // Serial.println("DUTY in PWM.cpp is " + String(duty));
 	ledcWrite(getChannel(), duty);
 }
 void ESP32PWM::adjustFrequencyLocal(double freq, double dutyScaled) {
